@@ -1,6 +1,24 @@
-# Tester agent
+# Agentes de IA
 
-## Configuración
+El proyecto usa dos agentes de **caja negra**, lanzados como subagentes de Claude Code desde la sesión
+de desarrollo. Ninguno de los dos ve la implementación: solo reciben el contrato (`README.md`) y la
+API en ejecución. Tienen funciones separadas para no solaparse:
+
+| | Tester agent | Validation agent |
+|---|---|---|
+| Pregunta que responde | ¿Cada endpoint **se comporta** como dice el contrato? | ¿Cada **entrada** de cada endpoint se valida como dice el contrato? |
+| Se centra en | CRUD, status de éxito y error, `Location`, filtros, ordenación, paginación, stats | Cada campo contra cada regla, cada parámetro, el `:id`, el formato del cuerpo, que nada inválido se guarda, robustez (nunca 5xx) |
+| Script | `AI/blackbox-checks.mjs` (50 comprobaciones) | `AI/validation-matrix.mjs` (542 casos en una matriz declarativa) |
+| Origen | El que pide el enunciado (apartado 9) | Ampliación propia para cubrir la validación de forma exhaustiva |
+
+El enunciado pide un único tester agent. El segundo agente se añadió porque la validación de entradas
+(apartado 3.4) tiene muchas combinaciones (5 endpoints × 5 campos × varias reglas, más 7 parámetros
+de consulta) que conviene probar de forma sistemática. Se le prohibió leer el script del tester agent
+para que no copiara sus casos y aportara una mirada independiente.
+
+## 1. Tester agent
+
+### Configuración
 
 | | |
 |---|---|
@@ -15,7 +33,7 @@ El agente no ve la implementación: todo lo que sabe de la API sale del README o
 HTTP que obtiene. Por eso sus comprobaciones verifican el **contrato**, no el código, y sirven para
 detectar diferencias entre lo que el README promete y lo que la API hace.
 
-## Prompt
+### Prompt
 
 ```text
 Eres el TESTER AGENT de un proyecto universitario. Tu trabajo es generar comprobaciones HTTP de CAJA NEGRA para una API REST a partir únicamente de su contrato.
@@ -61,12 +79,12 @@ Decisiones de diseño del prompt:
 - **Informe estructurado.** Separa los fallos de la API de los errores del propio agente, para que la
   revisión humana de `review-log.md` sea posible.
 
-## Contrato recibido
+### Contrato recibido
 
 El contrato es `README.md`, en concreto las secciones *Recurso: jugador*, *Endpoints*, *PUT frente a
 PATCH* y *Política de parámetros desconocidos*, en la versión del mismo commit que este fichero.
 
-## Comprobaciones generadas
+### Comprobaciones generadas
 
 El agente generó `AI/blackbox-checks.mjs`, un script de Node.js 18+ sin dependencias que usa solo
 `fetch` y `node:assert/strict`. Tiene 49 comprobaciones independientes. Tras la revisión humana
@@ -94,4 +112,109 @@ estén usando la API, y al terminar los borra.
 ```bash
 npm start
 node AI/blackbox-checks.mjs
+```
+
+## 2. Validation agent
+
+### Configuración
+
+| | |
+|---|---|
+| Rol | Validador de caja negra de las **entradas** de la API `/jugadores` |
+| Herramienta | Subagente de Claude Code (tipo `general-purpose`), lanzado desde la sesión de desarrollo |
+| Entrada | Solo `README.md` (el contrato) y la API en ejecución en `http://localhost:3000` |
+| Sin acceso a | `src/`, `tests/`, `public/`, `package.json` y toda la carpeta `AI/`, incluido el script del tester agent |
+| Salida | `AI/validation-matrix.mjs` y un informe con cobertura, fallos, correcciones y ambigüedades |
+| Ejecución | `node AI/validation-matrix.mjs` con la API arrancada (`--tabla` y `--cobertura` opcionales) |
+
+### Prompt
+
+```text
+Eres el VALIDATION AGENT de un proyecto universitario. Tu único trabajo es comprobar la VALIDACIÓN DE ENTRADAS de una API REST, endpoint por endpoint y entrada por entrada, a partir solo de su contrato. Otro agente distinto ya prueba el comportamiento general (CRUD, filtros, ordenación, stats); tú no repites eso: te centras en qué pasa con cada dato que entra a la API.
+
+## Lo que recibes
+1. El contrato: el fichero README.md del proyecto.
+   Lee sobre todo "Recurso: jugador", "Endpoints" y "Política de parámetros desconocidos".
+2. La API en ejecución en http://localhost:3000 (recurso /jugadores).
+
+## Restricciones estrictas
+- NO leas ningún otro fichero del proyecto: ni src/, ni tests/, ni public/, ni package.json, ni nada de la carpeta AI/ (allí están las comprobaciones del otro agente y no debes copiarlas). Solo el README.md. Lo que el contrato no diga, pruébalo contra la API y anótalo como "comportamiento observado, no documentado".
+- No modifiques ningún fichero salvo el que se te pide crear.
+- La API guarda los datos en memoria y otras personas pueden estar usándola. Crea tus propios jugadores (con una marca aleatoria en el nombre para poder encontrarlos con ?search=) y bórralos al terminar. No borres ni modifiques jugadores que no hayas creado tú.
+
+## Lo que debes producir
+Crea el fichero AI/validation-matrix.mjs con estas condiciones:
+- Script de Node.js 18+ sin dependencias: fetch global y node:assert/strict. URL base en process.env.BASE_URL, por defecto http://localhost:3000.
+- Organízalo como una MATRIZ DECLARATIVA: un array de casos, cada uno con { endpoint, entrada (campo o parámetro), regla, valor enviado, status esperado, campos de error esperados }. Un bucle ejecuta todos los casos. Así cualquiera puede leer la matriz como una tabla y añadir casos sin tocar la lógica.
+- Cubre, para cada endpoint que recibe datos:
+  · POST /jugadores, PUT /jugadores/:id y PATCH /jugadores/:id: cada uno de los cinco campos (nombre, posicion, dorsal, puntos, disponible) contra cada regla del contrato: ausente, tipo incorrecto (texto, número, booleano, null, array, objeto), valor justo en el límite (válido) y justo fuera (inválido). Ten en cuenta la diferencia entre validación completa (POST y PUT) y parcial (PATCH).
+  · GET /jugadores: cada parámetro de consulta (search, disponible, posicion, sort, order, limit, offset) con valores válidos, mal formados, vacíos y repetidos; parámetros desconocidos; y GET /jugadores/stats con parámetros.
+  · El parámetro :id de la ruta en GET, PUT, PATCH y DELETE: formatos válidos e inválidos.
+  · El cuerpo en sí: JSON mal formado, cuerpo vacío, array, null, texto plano, Content-Type distinto de application/json.
+- Para cada caso inválido comprueba tres cosas: (1) el status es el esperado; (2) el 400 trae { errors: [{ field, message }] } y el field señala la entrada correcta; (3) el dato inválido NO se ha guardado (para POST, que no aparece con ?search=; para PUT y PATCH, que un GET posterior devuelve el jugador sin cambios).
+- Añade un bloque de ROBUSTEZ con entradas raras o maliciosas: textos muy largos, unicode y emojis en el nombre, espacios y caracteres de control, números como 1e2, -0, Infinity enviado como texto, claves "__proto__" y "constructor" en el cuerpo, objetos anidados, campos duplicados en el JSON, un cuerpo de más de 100 KB. Aquí la regla es: la API nunca responde 5xx, siempre responde JSON y nunca guarda un campo desconocido.
+- Al terminar imprime un resumen por endpoint (casos superados / totales) y la línea final "N/M casos superados". Sale con código 1 si alguno falla.
+- Comentarios breves en español.
+
+Después ejecútalo con node AI/validation-matrix.mjs. Si un caso falla, decide si el fallo es de la API (incumple el contrato) o tuyo (caso mal escrito o contrato ambiguo). Corrige SOLO tus casos cuando el error sea tuyo. Nunca cambies un caso para que pase si la API incumple el contrato; tampoco relajes un caso ante una ambigüedad: déjalo indicado en el informe para que lo decida una persona.
+
+## Tu respuesta final
+Un informe en español con:
+1. Una tabla de cobertura: filas = endpoints, columnas = entradas, con cuántos casos tiene cada celda.
+2. El resultado de la última ejecución (N/M) y la salida de los casos que fallen.
+3. Cada fallo que atribuyas a la API: petición, respuesta y regla del contrato que incumple.
+4. Cada corrección que hiciste en tus propios casos y por qué.
+5. Ambigüedades del contrato y comportamientos observados no documentados, sin resolverlos tú.
+```
+
+Decisiones de diseño del prompt, además de las del tester agent:
+
+- **Prohibido leer `AI/`.** Si viera las comprobaciones del tester agent, tendería a repetirlas. Sin
+  ellas, sus casos son una segunda opinión independiente.
+- **Matriz declarativa.** Cada caso es una fila de datos (`endpoint`, `entrada`, `regla`, `valor`,
+  `status`, `errores`), no código. Se puede leer como una tabla, revisar caso a caso y ampliar sin
+  tocar la lógica.
+- **Tres comprobaciones por caso inválido:** status, campo del error y que nada se ha guardado. Un
+  `400` correcto no basta si el dato inválido llegó a almacenarse.
+- **No relajar ante una ambigüedad.** Aprendido del tester agent, que en un caso ambiguo eligió la
+  lectura que no fallaba (ver `review-log.md`). Al validation agent se le pidió marcarlo como
+  `observar` y dejar la decisión a una persona.
+
+### Contrato recibido
+
+`README.md`, en la versión del commit en que se lanzó el agente. Las reglas que la revisión cambió
+después (nombre, `limit`/`offset`, cuerpo vacío, URL mal codificada, orden de las comprobaciones) ya
+están incorporadas al README de este commit.
+
+### Comprobaciones generadas
+
+`AI/validation-matrix.mjs`: 542 casos. Cada caso crea su propio jugador, marcado con un token
+aleatorio en el nombre, y al terminar se borran todos. En la ejecución del agente fueron 298
+jugadores.
+
+| Endpoint | Entradas probadas | Casos |
+|---|---|---|
+| POST /jugadores | Los 5 campos (ausente, cada tipo incorrecto, límites), `id` del cliente, campos desconocidos, formato y tamaño del cuerpo, `__proto__`/`constructor` | 147 |
+| PUT /jugadores/:id | Los 5 campos con validación completa, `:id` en todos sus formatos, cuerpo | 118 |
+| PATCH /jugadores/:id | Los 5 campos con validación parcial (los no enviados se conservan), `:id`, cuerpo | 128 |
+| GET /jugadores/:id | `:id`: inexistente, `0`, negativos, decimales, ceros a la izquierda, texto, `%` mal codificado | 21 |
+| DELETE /jugadores/:id | `:id` en todos sus formatos | 17 |
+| GET /jugadores | Los 7 parámetros (válidos, mal formados, vacíos, repetidos), desconocidos, combinaciones | 101 |
+| GET /jugadores/stats | Cualquier parámetro debe dar `400` | 10 |
+
+Cada caso **inválido** comprueba el status, que el conjunto de `field` del `400` es exactamente el
+esperado y que el dato no se ha guardado. Cada caso **válido** comprueba que la respuesta tiene las 6
+claves del recurso, que un GET posterior devuelve lo mismo y que los valores guardados son los
+esperados (por ejemplo, el nombre recortado).
+
+Los casos que el contrato no fija llevan `status: 'observar'`: solo se exige que no haya 5xx y que la
+respuesta sea JSON, y el resultado se imprime para revisarlo. Las líneas que cambió la revisión llevan
+el comentario `// Revisión humana:`.
+
+Última ejecución, con la API corregida: **542/542 casos superados**.
+
+```bash
+npm start
+node AI/validation-matrix.mjs
+node AI/validation-matrix.mjs --cobertura
 ```

@@ -36,6 +36,7 @@ practice1-cbarganzuela/
     app.js                         Configura Express: middlewares, estáticos, rutas y errores
     server.js                      Arranca el servidor (app.listen)
     middleware/logger.js           Registra método, ruta, status y duración de cada petición
+    middleware/cuerpoVacio.js      Trata un cuerpo JSON vacío como ausente (express.json lo convierte en {})
     middleware/errors.js           404 JSON y manejador centralizado de errores
     routes/jugadores.js            Rutas ligeras: solo asocian método y ruta con el controlador
     controllers/jugadoresController.js  Lógica HTTP: valida, llama al almacenamiento y responde
@@ -43,9 +44,10 @@ practice1-cbarganzuela/
     validators/jugadorValidator.js Validación del cuerpo y de los parámetros de consulta
   tests/jugadores.test.js          Pruebas automatizadas (opcional)
   AI/
-    agents.md                      Configuración del tester agent, contrato y comprobaciones
-    review-log.md                  Revisión crítica de lo que devolvió el agente
-    blackbox-checks.mjs            Comprobaciones HTTP de caja negra generadas por el agente
+    agents.md                      Configuración de los dos agentes, contrato y comprobaciones
+    review-log.md                  Revisión crítica de lo que devolvió cada agente
+    blackbox-checks.mjs            Tester agent: comprobaciones de comportamiento de la API
+    validation-matrix.mjs          Validation agent: matriz de validación por endpoint y entrada
   public/
     index.html, styles.css, app.js, img/escudo.svg
 ```
@@ -70,7 +72,7 @@ bastaría con sustituir ese módulo por otro con las mismas funciones.
 | Campo | Tipo | Reglas |
 |---|---|---|
 | `id` | entero | Lo genera el servidor. Si el cliente envía un `id`, se ignora. |
-| `nombre` | texto | Obligatorio. Entre 2 y 60 caracteres tras quitar espacios al principio y al final; se guarda ya sin ellos. |
+| `nombre` | texto | Obligatorio. Entre 2 y 60 caracteres tras quitar los espacios en blanco del principio y del final (también tabuladores y saltos de línea); se guarda ya sin ellos. Se cuentan caracteres reales: un emoji cuenta como uno. No admite caracteres de control (como `\u0000`) ni invisibles (como el espacio de ancho cero `​`). |
 | `posicion` | valores cerrados | Obligatorio. Uno de: `base`, `escolta`, `alero`, `ala-pivot`, `pivot`. |
 | `dorsal` | entero | Obligatorio. Número entero entre 0 y 99. |
 | `puntos` | número | Obligatorio. Puntos por partido, entre 0 y 60. Admite decimales. |
@@ -99,15 +101,24 @@ Formato de los errores:
 
 - `400`: `{ "errors": [{ "field": "dorsal", "message": "..." }, ...] }` con **todas** las incidencias a la vez.
 - `404`: `{ "error": "No existe ningún jugador con id 99." }`.
+- `413`: `{ "error": "El cuerpo de la petición es demasiado grande." }` si el cuerpo supera 100 KB.
 - `500`: `{ "error": "Error interno del servidor." }`. La traza solo se escribe en la consola del servidor.
 
-En `PUT`, `PATCH` y `DELETE` se comprueba primero que el jugador existe (`404`) y después el cuerpo (`400`).
 Un `:id` que no está escrito como entero positivo sin ceros a la izquierda (`/jugadores/abc`, `/0`,
-`/1.5`, `/01`) se trata como inexistente: `404`.
+`/1.5`, `/01`) se trata como inexistente: `404`. También una URL con una codificación `%` inválida
+(`/jugadores/%E0%A4%A`).
 
 Los cuerpos que no son un objeto JSON producen un `400` con `field: "body"`: JSON mal formado, un
 array, un cuerpo vacío o un `Content-Type` distinto de `application/json`. También lo produce un
-`PATCH` sin ningún campo conocido.
+`PATCH` sin ningún campo modificable (el `id` no cuenta, porque nunca se cambia).
+
+**Orden de las comprobaciones en `PUT`, `PATCH` y `DELETE`:**
+
+1. Si el cuerpo es un JSON mal formado, `400` en cualquier caso, exista o no el jugador. El JSON se
+   analiza en un middleware global (`express.json`) antes de llegar a la ruta, así que un cuerpo
+   ilegible se rechaza antes de buscar el id.
+2. Si el jugador no existe, `404`.
+3. Si el contenido no cumple las reglas, `400`.
 
 ### GET /jugadores
 
@@ -118,8 +129,8 @@ array, un cuerpo vacío o un `Content-Type` distinto de `application/json`. Tamb
 | `posicion` | `base` \| `escolta` \| `alero` \| `ala-pivot` \| `pivot` | Filtra por posición. |
 | `sort` | `nombre` \| `dorsal` \| `puntos` | Campo de ordenación. Sin `sort`, se ordena por `id`. |
 | `order` | `asc` \| `desc` | Sentido de la ordenación. Por defecto `asc`. |
-| `limit` | entero de 1 a 100 | Tamaño de la ventana. Por defecto `20`. |
-| `offset` | entero ≥ 0 | Elementos que se saltan. Por defecto `0`. |
+| `limit` | entero de 1 a 100, sin ceros a la izquierda | Tamaño de la ventana. Por defecto `20`. |
+| `offset` | entero ≥ 0, sin ceros a la izquierda | Elementos que se saltan. Por defecto `0`. |
 
 Todos los parámetros se pueden combinar. Primero se filtra, después se ordena y al final se aplica la ventana.
 `total` es el número de jugadores que cumplen los filtros, antes de aplicar `limit` y `offset`.
@@ -224,6 +235,53 @@ Content-Type: application/json
 ### GET, PUT, PATCH y DELETE /jugadores/:id
 
 ```http
+GET /jugadores/1
+```
+
+```json
+{ "id": 1, "nombre": "Daniel Ortega", "posicion": "base", "dorsal": 7, "puntos": 14.5, "disponible": true }
+```
+
+```http
+GET /jugadores/99
+```
+
+```http
+HTTP/1.1 404 Not Found
+
+{ "error": "No existe ningún jugador con id 99." }
+```
+
+```http
+PUT /jugadores/2
+Content-Type: application/json
+
+{ "nombre": "Samuel Nzé", "posicion": "ala-pivot", "dorsal": 15, "puntos": 13.1, "disponible": true }
+```
+
+```json
+{ "id": 2, "nombre": "Samuel Nzé", "posicion": "ala-pivot", "dorsal": 15, "puntos": 13.1, "disponible": true }
+```
+
+```http
+PUT /jugadores/2
+Content-Type: application/json
+
+{ "disponible": false }
+```
+
+```json
+{
+  "errors": [
+    { "field": "nombre", "message": "El nombre es obligatorio." },
+    { "field": "posicion", "message": "La posición es obligatoria." },
+    { "field": "dorsal", "message": "El dorsal es obligatorio." },
+    { "field": "puntos", "message": "Los puntos por partido son obligatorios." }
+  ]
+}
+```
+
+```http
 PATCH /jugadores/3
 Content-Type: application/json
 
@@ -311,10 +369,24 @@ bajo el campo Dorsal.
 
 ## Componente de IA agéntica
 
-En la carpeta `AI/` está la configuración del tester agent. Recibió solo este contrato y la URL de la
-API en ejecución, sin acceso a `src/`. También está el registro de la revisión de lo que generó. Las
-comprobaciones de caja negra se ejecutan con la API arrancada:
+La carpeta `AI/` contiene dos agentes de caja negra con funciones separadas. Los dos recibieron solo
+este contrato y la URL de la API en ejecución, sin acceso a `src/`:
+
+| Agente | Qué comprueba | Script | Casos |
+|---|---|---|---|
+| **Tester agent** (el que pide el enunciado) | El **comportamiento** de cada endpoint: CRUD, status, filtros, ordenación, paginación, stats | `AI/blackbox-checks.mjs` | 50 |
+| **Validation agent** (ampliación) | La **validación de cada entrada** de cada endpoint (campo × regla, parámetros, `:id`, formato del cuerpo), que nada inválido se guarda y la robustez ante entradas maliciosas (nunca un 5xx) | `AI/validation-matrix.mjs` | 542 |
+
+La configuración, los prompts y las comprobaciones están en `AI/agents.md`. La revisión crítica de lo
+que devolvió cada agente está en `AI/review-log.md`. Los dos scripts se ejecutan con la API arrancada:
 
 ```bash
 node AI/blackbox-checks.mjs
 ```
+
+```bash
+node AI/validation-matrix.mjs
+```
+
+`node AI/validation-matrix.mjs --tabla` imprime la matriz completa sin ejecutarla y `--cobertura`
+muestra cuántos casos hay por endpoint y entrada.

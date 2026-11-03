@@ -1,11 +1,17 @@
-# Registro de revisión del tester agent
+# Registro de revisión de los agentes
 
 Cada entrada recoge qué se pidió al agente, qué devolvió, qué se decidió y por qué. La configuración
-y el prompt completo están en `agents.md`.
+y los prompts completos están en `agents.md`.
 
-El agente se lanzó desde Claude Code, el asistente usado durante el desarrollo, y la revisión se hizo
-con ese mismo apoyo. Cada decisión de este registro está justificada para que se pueda explicar y
-defender.
+- Secciones 1 a 6: **tester agent** (`blackbox-checks.mjs`).
+- Secciones 7 a 11: **validation agent** (`validation-matrix.mjs`).
+- Sección 12: resultado final.
+
+Los agentes se lanzaron desde Claude Code, el asistente usado durante el desarrollo, y la revisión se
+hizo con ese mismo apoyo. Cada decisión de este registro está justificada para que se pueda explicar
+y defender.
+
+# Tester agent
 
 ## 1. Generación de las comprobaciones de caja negra
 
@@ -103,9 +109,113 @@ porque una persona que use la API no los puede adivinar:
 - **Aceptar cualquier jugador empatado en `maximoAnotador`.** Se mantuvo: probar el desempate exacto
   exigiría vaciar la plantilla, y el agente tenía prohibido tocar datos ajenos.
 
-## 7. Resultado final
+# Validation agent
+
+## 7. Generación de la matriz de validación
+
+**Qué se pidió.** Comprobar la validación de **cada entrada** de cada endpoint (los 5 campos en POST,
+PUT y PATCH, los 7 parámetros de consulta, el `:id` y el formato del cuerpo), más un bloque de
+robustez con entradas raras o maliciosas. Igual que el tester agent, solo podía leer `README.md`, y
+además tenía prohibido leer la carpeta `AI/` para no copiar al otro agente. Se le pidió expresamente
+no relajar ningún caso ante una ambigüedad.
+
+**Qué devolvió.** `AI/validation-matrix.mjs`, con 663 líneas y una matriz declarativa de 542 casos,
+más un informe con tabla de cobertura. Resultado: **538/542**. El informe atribuía 3 fallos a la API y
+dejaba 1 caso ambiguo para que lo decidiera una persona.
+
+**Qué se comprobó antes de aceptarlo.**
+
+- Se ejecutó el script de forma independiente: los mismos 4 fallos y el mismo 538/542.
+- Se reprodujo cada fallo a mano con `curl`. Los cuatro son reales.
+- Solo importa `node:assert/strict` y usa `fetch`. No lee ficheros.
+- Al terminar, la plantilla vuelve a tener los 8 jugadores: la limpieza de sus 298 jugadores de prueba
+  funciona.
+- El agente encontró y corrigió un fallo en su propio script: contaba la cobertura con un objeto `{}`,
+  y las claves `__proto__` y `constructor` chocaban con el prototipo. Lo cambió a `Map`. Es justo el
+  tipo de fallo que la matriz busca en la API. Se aceptó.
+
+**Decisión.** Aceptado. Los fallos se corrigieron en la API (puntos 8 y 9), el caso ambiguo lo
+decidió una persona (punto 10) y varias observaciones pasaron a ser reglas (punto 11).
+
+## 8. Cuerpo vacío en POST y PUT — fallo real de la API
+
+**Qué detectó el agente.** Con `Content-Type: application/json` y cuerpo vacío, la API devolvía los
+cinco errores por campo en lugar de `field: "body"`, aunque el README dice expresamente que un cuerpo
+vacío da `field: "body"`.
+
+**Causa.** `express.json()` convierte un cuerpo vacío en `{}`, y el validador no podía distinguirlo de
+un objeto sin campos. Se comprobó con un script de prueba aparte antes de tocar el código.
+
+**Qué se corrigió.**
+
+- **API:** nuevo middleware `src/middleware/cuerpoVacio.js`. La opción `verify` de `express.json`
+  recibe los bytes reales del cuerpo; si hay 0 bytes, el cuerpo se descarta y el validador responde
+  `field: "body"`, igual que cuando no hay cuerpo.
+- **Jest:** casos `un cuerpo vacío con Content-Type JSON se trata como ausente` y `un PATCH con cuerpo
+  vacío a un id inexistente responde 404`.
+
+## 9. `GET /jugadores/%E0%A4%A` respondía 500 — fallo real y el más grave
+
+**Qué detectó el agente.** Una URL con una codificación `%` inválida provocaba un **500**. Era el
+único 5xx de los 542 casos.
+
+**Causa.** Express no puede decodificar el `:id` y lanza un `URIError` con status 400. El manejador
+de errores no lo reconocía y respondía 500. No había traza en la respuesta, pero sí un error interno
+provocado desde fuera con una simple URL.
+
+**Qué se corrigió.**
+
+- **API:** `src/middleware/errors.js` responde `404` ante un `URIError`, igual que con cualquier `:id`
+  mal formado. Además, cualquier otro error del cliente (status 4xx) que llegue al manejador conserva
+  su status en lugar de convertirse en 500.
+- **Matriz:** el caso pasó de `observar` a exigir `404`.
+- **Jest:** caso `una URL con codificación % inválida responde 404 JSON, no 500`.
+
+## 10. JSON mal formado a un id inexistente — ambigüedad decidida por una persona
+
+**Qué detectó el agente.** El README decía que en PUT, PATCH y DELETE se comprueba primero el id
+(`404`) y después el cuerpo (`400`). Pero `PUT /jugadores/999999999` con un JSON mal formado daba
+`400`. El agente mantuvo su caso en estricto (404) y lo dejó como decisión humana, tal como se le
+pidió.
+
+**Decisión: no se cambia la API, se corrige el contrato.** El JSON se analiza en un middleware global
+(`express.json`) antes de llegar a la ruta, así que un cuerpo ilegible se rechaza antes de poder
+buscar el id. Cambiarlo obligaría a analizar el JSON a mano dentro de cada ruta, solo para cambiar el
+status de una petición que de todas formas es incorrecta.
+
+- **README:** nueva sección "Orden de las comprobaciones": primero JSON mal formado (`400`), después id
+  inexistente (`404`) y después reglas del contenido (`400`).
+- **Matriz:** el caso exige ahora `400` con `field: "body"`, con un comentario que explica la decisión.
+
+**Lección.** Esta vez el agente hizo lo correcto ante la ambigüedad: no relajó su caso y lo señaló.
+Fue posible porque el prompt se escribió con lo aprendido del tester agent (sección 2).
+
+## 11. Observaciones que pasaron a ser reglas
+
+El agente marcó como `observar` varios comportamientos que el contrato no fijaba. Revisados uno a uno:
+
+| Observación del agente | Decisión | Cambio |
+|---|---|---|
+| `limit=05` y `offset=00` se aceptaban, pero `/jugadores/01` daba 404 | **Incoherente.** Mismo criterio para todos los números de la URL. | `limit` y `offset` sin ceros a la izquierda. Casos de la matriz y Jest a `400`. |
+| Un nombre con `\u0000` dentro se guardaba | **Inaceptable** en un nombre. | Se rechazan los caracteres de control (`\p{Cc}`). |
+| Un nombre de dos espacios de ancho cero (invisible) era válido | **Inaceptable:** el nombre se ve vacío. | Se rechazan los caracteres invisibles (`\p{Cf}`). |
+| La longitud se contaba en unidades UTF-16: 31 emojis daban 400 y un solo emoji contaba como 2 | **Error:** el límite es de caracteres. | Se cuenta con `[...texto].length`. Un emoji pasa a dar 400 y 31 emojis, 201. El cliente cuenta igual. |
+| El recorte quita también tabuladores, saltos de línea y espacios duros | Correcto. | Solo se documentó en el README. |
+| Cuerpo > 100 KB: `413` con formato `{ error }` | Correcto. | Se añadió el 413 al README. |
+| `PATCH { "id": 999999 }` daba 400 `body` | Correcto: el `id` nunca se puede cambiar. | Se documentó que el `id` no cuenta como campo modificable. |
+| `__proto__` y `constructor` en el cuerpo, claves duplicadas, anidamiento de 20 000 niveles | Correcto: no se guardan ni contaminan nada. | Ninguno; la matriz los sigue comprobando. |
+| `?=x` da 400 con `field: ""`; `?&&` da 200 | Coherente con la política: `""` es un parámetro desconocido, y `&&` no envía ninguno. | Ninguno. |
+
+**Limitación aceptada.** En algunos POST inválidos sin la marca en el nombre, "no se ha guardado" se
+comprueba comparando `total` antes y después. Si alguien usa la API a la vez, ese caso podría fallar
+sin culpa de la API. Se aceptó porque la alternativa sería no comprobar esos casos.
+
+# Resultado final
+
+## 12. Las tres baterías, con la API corregida
 
 | Batería | Resultado |
 |---|---|
-| `node AI/blackbox-checks.mjs` (agente + revisión) | 50/50 |
-| `npm test` (Jest + Supertest) | 37/37 |
+| `node AI/blackbox-checks.mjs` (tester agent + revisión) | 50/50 |
+| `node AI/validation-matrix.mjs` (validation agent + revisión) | 542/542 |
+| `npm test` (Jest + Supertest) | 44/44 |

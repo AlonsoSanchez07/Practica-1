@@ -1,0 +1,156 @@
+<!--
+  Práctica 1 - Cliente web de la plantilla del CB Arganzuela
+  Autor: Alonso Sánchez Moscoso
+-->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plantilla | Club Baloncesto Arganzuela</title>
+  <link rel="icon" href="img/escudo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="cabecera">
+    <a class="marca" href="/">
+      <img src="img/escudo.svg" alt="" width="48" height="48">
+      <span>CB Arganzuela · Plantilla</span>
+    </a>
+    <nav aria-label="Secciones">
+      <ul>
+        <li><a href="#plantilla">Plantilla</a></li>
+        <li><a href="#formulario">Nuevo jugador</a></li>
+        <li><a href="#estadisticas">Estadísticas</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="layout">
+    <h1 class="visualmente-oculto">Gestión de la plantilla del CB Arganzuela</h1>
+
+    <section id="formulario" class="panel" aria-labelledby="form-titulo">
+      <h2 id="form-titulo">Nuevo jugador</h2>
+      <form id="form-jugador" novalidate>
+        <div class="campo">
+          <label for="nombre">Nombre</label>
+          <input type="text" id="nombre" name="nombre" maxlength="60" autocomplete="off" aria-describedby="error-nombre">
+          <p class="error-campo" id="error-nombre"></p>
+        </div>
+
+        <div class="fila-campos">
+          <div class="campo">
+            <label for="dorsal">Dorsal</label>
+            <input type="number" id="dorsal" name="dorsal" min="0" max="99" step="1" aria-describedby="error-dorsal">
+            <p class="error-campo" id="error-dorsal"></p>
+          </div>
+          <div class="campo">
+            <label for="puntos">Puntos por partido</label>
+            <input type="number" id="puntos" name="puntos" min="0" max="60" step="0.1" aria-describedby="error-puntos">
+            <p class="error-campo" id="error-puntos"></p>
+          </div>
+        </div>
+
+        <div class="campo">
+          <label for="posicion">Posición</label>
+          <select id="posicion" name="posicion" aria-describedby="error-posicion">
+            <option value="">Elige una posición</option>
+            <option value="base">Base</option>
+            <option value="escolta">Escolta</option>
+            <option value="alero">Alero</option>
+            <option value="ala-pivot">Ala-pívot</option>
+            <option value="pivot">Pívot</option>
+          </select>
+          <p class="error-campo" id="error-posicion"></p>
+        </div>
+
+        <div class="campo campo-check">
+          <input type="checkbox" id="disponible" name="disponible" checked aria-describedby="error-disponible">
+          <label for="disponible">Disponible para jugar</label>
+          <p class="error-campo" id="error-disponible"></p>
+        </div>
+
+        <p class="error-campo error-general" id="error-body" role="alert"></p>
+
+        <div class="acciones-form">
+          <button type="submit" id="boton-enviar" class="boton boton-primario">Crear jugador</button>
+          <button type="button" id="boton-cancelar" class="boton" hidden>Cancelar edición</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="plantilla" class="panel" aria-labelledby="plantilla-titulo">
+      <h2 id="plantilla-titulo">Plantilla</h2>
+
+      <form id="filtros" class="filtros" role="search">
+        <div class="campo campo-busqueda">
+          <label for="buscar">Buscar por nombre</label>
+          <input type="search" id="buscar" name="search" placeholder="Ej.: ortega" autocomplete="off">
+        </div>
+        <div class="campo">
+          <label for="filtro-posicion">Posición</label>
+          <select id="filtro-posicion" name="posicion">
+            <option value="">Todas</option>
+            <option value="base">Base</option>
+            <option value="escolta">Escolta</option>
+            <option value="alero">Alero</option>
+            <option value="ala-pivot">Ala-pívot</option>
+            <option value="pivot">Pívot</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label for="filtro-disponible">Estado</label>
+          <select id="filtro-disponible" name="disponible">
+            <option value="">Todos</option>
+            <option value="true">Disponibles</option>
+            <option value="false">No disponibles</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label for="orden">Ordenar por</label>
+          <select id="orden" name="orden">
+            <option value="">Alta en el club</option>
+            <option value="nombre:asc">Nombre (A-Z)</option>
+            <option value="nombre:desc">Nombre (Z-A)</option>
+            <option value="dorsal:asc">Dorsal (menor a mayor)</option>
+            <option value="puntos:desc">Puntos (más a menos)</option>
+            <option value="puntos:asc">Puntos (menos a más)</option>
+          </select>
+        </div>
+      </form>
+
+      <p id="cargando" class="cargando" role="status" hidden>
+        <span class="spinner" aria-hidden="true"></span> Cargando…
+      </p>
+      <p id="aviso" class="aviso" role="status"></p>
+      <p id="mensaje-error" class="mensaje-error" role="alert" hidden></p>
+      <p id="vacio" class="vacio" hidden>No hay jugadores que coincidan con la búsqueda y los filtros.</p>
+
+      <ul id="lista" class="tarjetas" aria-live="polite"></ul>
+
+      <nav class="paginacion" aria-label="Paginación">
+        <button type="button" id="anterior" class="boton">← Anterior</button>
+        <p id="rango"></p>
+        <button type="button" id="siguiente" class="boton">Siguiente →</button>
+      </nav>
+    </section>
+
+    <aside id="estadisticas" class="panel" aria-labelledby="stats-titulo">
+      <h2 id="stats-titulo">Estadísticas</h2>
+      <dl class="stats">
+        <div><dt>Jugadores</dt><dd id="stat-total">—</dd></div>
+        <div><dt>Disponibles</dt><dd id="stat-disponibles">—</dd></div>
+        <div><dt>Media de puntos</dt><dd id="stat-media">—</dd></div>
+        <div><dt>Máximo anotador</dt><dd id="stat-maximo">—</dd></div>
+      </dl>
+      <h3>Por posición</h3>
+      <ul id="stat-posiciones" class="stats-posiciones"></ul>
+    </aside>
+  </main>
+
+  <footer class="pie">
+    <p>&copy; 2026 Club Baloncesto Arganzuela · Práctica 1 de Programación de Aplicaciones Web.</p>
+  </footer>
+</body>
+</html>

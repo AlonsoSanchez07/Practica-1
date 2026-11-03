@@ -1,0 +1,513 @@
+/*
+  Práctica 1 - Estilos del cliente de la plantilla
+  Autor: Alonso Sánchez Moscoso
+*/
+
+/* ---------- Paleta (colores del escudo del club) ---------- */
+:root {
+  --azul: #1d3557;
+  --azul-oscuro: #10223a;
+  --naranja: #f4a261;
+  --naranja-suave: #fff4ea;
+  --fondo: #f5f6f8;
+  --tarjeta: #ffffff;
+  --texto: #212529;
+  --texto-suave: #5c6670;
+  --borde: #d9dee5;
+  --verde: #1e7a46;
+  --verde-suave: #e3f4ea;
+  --rojo: #b42318;
+  --rojo-suave: #fdecea;
+  --radio: 8px;
+}
+
+/* ---------- Reset ---------- */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  line-height: 1.5;
+  color: var(--texto);
+  background-color: var(--fondo);
+}
+
+h1,
+h2,
+h3 {
+  margin-top: 0;
+  line-height: 1.25;
+  color: var(--azul);
+}
+
+/* Oculto a la vista, visible para lectores de pantalla */
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Foco visible en todos los controles al navegar con teclado */
+:focus-visible {
+  outline: 3px solid var(--naranja);
+  outline-offset: 2px;
+}
+
+/* ---------- Cabecera (Flexbox) ---------- */
+.cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--azul);
+  color: #ffffff;
+}
+
+.marca {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #ffffff;
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.cabecera nav ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cabecera nav a {
+  display: block;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.cabecera nav a:hover {
+  background-color: var(--naranja);
+  color: var(--azul-oscuro);
+}
+
+/* ---------- Distribución principal (Grid) ---------- */
+/* Formulario y estadísticas en una columna estrecha; la plantilla ocupa el resto. */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) 1fr;
+  grid-template-areas:
+    "formulario plantilla"
+    "estadisticas plantilla";
+  align-items: start;
+  gap: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+#formulario {
+  grid-area: formulario;
+}
+
+#plantilla {
+  grid-area: plantilla;
+}
+
+#estadisticas {
+  grid-area: estadisticas;
+}
+
+.panel {
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background-color: var(--tarjeta);
+}
+
+/* ---------- Campos de formulario ---------- */
+.campo {
+  margin-bottom: 1rem;
+}
+
+.campo label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-weight: 600;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="search"],
+select {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  background-color: #ffffff;
+  font: inherit;
+}
+
+input:focus,
+select:focus {
+  border-color: var(--azul);
+}
+
+input[aria-invalid="true"],
+select[aria-invalid="true"] {
+  border-color: var(--rojo);
+  background-color: var(--rojo-suave);
+}
+
+.fila-campos {
+  display: flex;
+  gap: 1rem;
+}
+
+.fila-campos .campo {
+  flex: 1;
+}
+
+.campo-check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.campo-check label {
+  display: inline;
+  margin: 0;
+}
+
+.campo-check input {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.campo-check .error-campo {
+  flex-basis: 100%;
+}
+
+.error-campo {
+  margin: 0.3rem 0 0;
+  color: var(--rojo);
+  font-size: 0.9rem;
+}
+
+.error-campo:empty {
+  display: none;
+}
+
+.acciones-form {
+  display: flex;
+  gap: 0.75rem;
+}
+
+/* ---------- Botones ---------- */
+.boton {
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: var(--azul);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.boton:hover {
+  background-color: #eef2f7;
+}
+
+.boton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.boton-primario {
+  flex: 1;
+  border-color: var(--azul);
+  background-color: var(--azul);
+  color: #ffffff;
+}
+
+.boton-primario:hover {
+  background-color: var(--azul-oscuro);
+}
+
+.boton-peligro {
+  color: var(--rojo);
+}
+
+.boton-peligro:hover {
+  background-color: var(--rojo-suave);
+}
+
+/* ---------- Filtros (Flexbox) ---------- */
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--borde);
+}
+
+.filtros .campo {
+  flex: 1 1 140px;
+}
+
+.filtros .campo-busqueda {
+  flex: 2 1 220px;
+}
+
+/* ---------- Estados: cargando, aviso, error y lista vacía ---------- */
+.cargando {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--texto-suave);
+}
+
+.cargando[hidden] {
+  display: none;
+}
+
+.spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 3px solid var(--borde);
+  border-top-color: var(--azul);
+  border-radius: 50%;
+  animation: girar 0.8s linear infinite;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.aviso:empty {
+  display: none;
+}
+
+.aviso {
+  padding: 0.6rem 0.9rem;
+  border-radius: 6px;
+  background-color: var(--verde-suave);
+  color: var(--verde);
+}
+
+.mensaje-error {
+  padding: 0.6rem 0.9rem;
+  border-left: 4px solid var(--rojo);
+  border-radius: 6px;
+  background-color: var(--rojo-suave);
+  color: var(--rojo);
+}
+
+.vacio {
+  padding: 2rem 1rem;
+  border: 2px dashed var(--borde);
+  border-radius: var(--radio);
+  color: var(--texto-suave);
+  text-align: center;
+}
+
+/* ---------- Tarjetas de jugadores (Grid) ---------- */
+.tarjetas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background-color: var(--tarjeta);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.tarjeta-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.tarjeta-cabecera h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.dorsal {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: center;
+  align-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background-color: var(--azul);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.tarjeta-datos {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+  margin: 0 0 1rem;
+}
+
+.tarjeta-datos dt {
+  color: var(--texto-suave);
+}
+
+.tarjeta-datos dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.etiqueta {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.etiqueta.si {
+  background-color: var(--verde-suave);
+  color: var(--verde);
+}
+
+.etiqueta.no {
+  background-color: var(--rojo-suave);
+  color: var(--rojo);
+}
+
+.tarjeta-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: auto;
+}
+
+.tarjeta-acciones .boton {
+  flex: 1 1 auto;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.9rem;
+}
+
+/* ---------- Paginación ---------- */
+.paginacion {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.paginacion p {
+  margin: 0;
+  color: var(--texto-suave);
+}
+
+/* ---------- Estadísticas ---------- */
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+}
+
+.stats div {
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  background-color: var(--naranja-suave);
+}
+
+.stats dt {
+  color: var(--texto-suave);
+  font-size: 0.85rem;
+}
+
+.stats dd {
+  margin: 0;
+  color: var(--azul);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.stats-posiciones {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stats-posiciones li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+/* ---------- Pie ---------- */
+.pie {
+  padding: 1.25rem;
+  border-top: 4px solid var(--naranja);
+  background-color: var(--azul);
+  color: #ffffff;
+  text-align: center;
+}
+
+.pie p {
+  margin: 0;
+}
+
+/* ---------- Responsive ---------- */
+/* Tablet y móvil: una sola columna. Formulario, plantilla y estadísticas, en ese orden. */
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "formulario"
+      "plantilla"
+      "estadisticas";
+    padding: 1rem;
+  }
+}
+
+/* Móvil: cabecera apilada y campos de dorsal y puntos uno debajo del otro. */
+@media (max-width: 560px) {
+  .cabecera {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .fila-campos {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .paginacion {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}

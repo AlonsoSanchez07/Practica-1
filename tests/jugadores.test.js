@@ -187,7 +187,7 @@ describe('POST /jugadores', () => {
   });
 
   test('el nombre no admite caracteres de control ni invisibles', async () => {
-    for (const nombre of ['Ab\u0000cd', '​​', 'Iker​Sanz']) {
+    for (const nombre of ['Ab\u0000cd', '\u200B\u200B', 'Iker\u200BSanz']) {
       const res = await request(app).post('/jugadores').send({ ...NUEVO, nombre });
       expect(res.status).toBe(400);
       expect(res.body.errors.map((e) => e.field)).toEqual(['nombre']);

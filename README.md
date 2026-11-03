@@ -72,7 +72,7 @@ bastaría con sustituir ese módulo por otro con las mismas funciones.
 | Campo | Tipo | Reglas |
 |---|---|---|
 | `id` | entero | Lo genera el servidor. Si el cliente envía un `id`, se ignora. |
-| `nombre` | texto | Obligatorio. Entre 2 y 60 caracteres tras quitar los espacios en blanco del principio y del final (también tabuladores y saltos de línea); se guarda ya sin ellos. Se cuentan caracteres reales: un emoji cuenta como uno. No admite caracteres de control (como `\u0000`) ni invisibles (como el espacio de ancho cero `​`). |
+| `nombre` | texto | Obligatorio. Entre 2 y 60 caracteres tras quitar los espacios en blanco del principio y del final (también tabuladores y saltos de línea); se guarda ya sin ellos. Se cuentan caracteres reales: un emoji cuenta como uno. No admite caracteres de control (como `\u0000`) ni invisibles (como el espacio de ancho cero `\u200B`). |
 | `posicion` | valores cerrados | Obligatorio. Uno de: `base`, `escolta`, `alero`, `ala-pivot`, `pivot`. |
 | `dorsal` | entero | Obligatorio. Número entero entre 0 y 99. |
 | `puntos` | número | Obligatorio. Puntos por partido, entre 0 y 60. Admite decimales. |

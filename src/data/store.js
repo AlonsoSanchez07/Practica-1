@@ -21,7 +21,7 @@ const copia = (jugador) => ({ ...jugador });
 
 // Minúsculas y sin tildes, para que "nze" encuentre "Nzé".
 function normalizar(texto) {
-  return texto.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return texto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
 function comparar(a, b) {

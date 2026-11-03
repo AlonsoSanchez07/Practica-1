@@ -82,7 +82,10 @@ Decisiones de diseño del prompt:
 ### Contrato recibido
 
 El contrato es `README.md`, en concreto las secciones *Recurso: jugador*, *Endpoints*, *PUT frente a
-PATCH* y *Política de parámetros desconocidos*, en la versión del mismo commit que este fichero.
+PATCH* y *Política de parámetros desconocidos*, tal como estaba al lanzar el agente, antes del primer
+commit. Su revisión cambió después el contrato: el ejemplo de `?limit=abc&color=azul`, la política de
+parámetros en `/stats`, los ids con ceros a la izquierda y los huecos que documentó. Esos cambios
+están explicados en `review-log.md` (secciones 2 a 5) y ya incorporados al README actual.
 
 ### Comprobaciones generadas
 
@@ -239,9 +242,10 @@ Decisiones de diseño del prompt, además de las del tester agent:
 
 ### Contrato recibido
 
-`README.md`, en la versión del commit en que se lanzó el agente. Las reglas que la revisión cambió
-después (nombre, `limit`/`offset`, cuerpo vacío, URL mal codificada, orden de las comprobaciones) ya
-están incorporadas al README de este commit.
+`README.md` del commit `95d61c0`, el último antes de lanzar el agente, que ya incluía las
+correcciones del tester agent. Las reglas que su revisión cambió después (nombre, `limit`/`offset`,
+cuerpo vacío, URL mal codificada, orden de las comprobaciones) están explicadas en `review-log.md`
+(secciones 8 a 11) y ya incorporadas al README actual.
 
 ### Comprobaciones generadas
 

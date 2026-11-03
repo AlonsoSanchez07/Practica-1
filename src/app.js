@@ -2,13 +2,15 @@ const path = require('path');
 const express = require('express');
 
 const logger = require('./middleware/logger');
+const { marcarCuerpoVacio, descartarCuerpoVacio } = require('./middleware/cuerpoVacio');
 const { notFound, errorHandler } = require('./middleware/errors');
 const jugadoresRouter = require('./routes/jugadores');
 
 const app = express();
 
 app.use(logger);
-app.use(express.json());
+app.use(express.json({ verify: marcarCuerpoVacio }));
+app.use(descartarCuerpoVacio);
 
 // Estáticos antes que la API: la página y la API comparten origen, así que fetch("/jugadores")
 // funciona sin CORS. Lo que no sea un fichero de public/ sigue hacia las rutas siguientes.

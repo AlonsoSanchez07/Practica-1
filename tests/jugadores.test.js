@@ -2,6 +2,7 @@
 const request = require('supertest');
 const app = require('../src/app');
 const store = require('../src/data/store');
+const { errorHandler } = require('../src/middleware/errors');
 
 const NUEVO = { nombre: 'Iker Sanz', posicion: 'escolta', dorsal: 21, puntos: 3.5, disponible: true };
 
@@ -63,6 +64,12 @@ describe('GET /jugadores', () => {
     const res = await request(app).get('/jugadores?limit=abc&color=azul');
     expect(res.status).toBe(400);
     expect(res.body.errors.map((e) => e.field)).toEqual(['color', 'limit']);
+  });
+
+  test('limit y offset no admiten ceros a la izquierda', async () => {
+    const res = await request(app).get('/jugadores?limit=05&offset=00');
+    expect(res.status).toBe(400);
+    expect(res.body.errors.map((e) => e.field)).toEqual(['limit', 'offset']);
   });
 
   test('responde 400 si un parámetro se repite', async () => {
@@ -172,6 +179,27 @@ describe('POST /jugadores', () => {
     expect(res.status).toBe(400);
     expect(res.body.errors[0].field).toBe('body');
   });
+
+  test('un cuerpo vacío con Content-Type JSON se trata como ausente', async () => {
+    const res = await request(app).post('/jugadores').set('Content-Type', 'application/json').send('');
+    expect(res.status).toBe(400);
+    expect(res.body.errors).toEqual([{ field: 'body', message: expect.any(String) }]);
+  });
+
+  test('el nombre no admite caracteres de control ni invisibles', async () => {
+    for (const nombre of ['Ab\u0000cd', '​​', 'Iker​Sanz']) {
+      const res = await request(app).post('/jugadores').send({ ...NUEVO, nombre });
+      expect(res.status).toBe(400);
+      expect(res.body.errors.map((e) => e.field)).toEqual(['nombre']);
+    }
+  });
+
+  test('la longitud del nombre se cuenta en caracteres reales', async () => {
+    const unEmoji = await request(app).post('/jugadores').send({ ...NUEVO, nombre: '\u{1F3C0}' });
+    expect(unEmoji.status).toBe(400);
+    const sesentaEmojis = await request(app).post('/jugadores').send({ ...NUEVO, nombre: '\u{1F3C0}'.repeat(60) });
+    expect(sesentaEmojis.status).toBe(201);
+  });
 });
 
 describe('PUT /jugadores/:id', () => {
@@ -230,6 +258,31 @@ describe('DELETE /jugadores/:id', () => {
     expect(despues.status).toBe(404);
     const otraVez = await request(app).delete('/jugadores/4');
     expect(otraVez.status).toBe(404);
+  });
+});
+
+describe('errores', () => {
+  test('un PATCH con cuerpo vacío a un id inexistente responde 404', async () => {
+    const res = await request(app).patch('/jugadores/999').set('Content-Type', 'application/json').send('');
+    expect(res.status).toBe(404);
+  });
+
+  test('una URL con codificación % inválida responde 404 JSON, no 500', async () => {
+    const res = await request(app).get('/jugadores/%E0%A4%A');
+    expect(res.status).toBe(404);
+    expect(res.body.error).toEqual(expect.any(String));
+  });
+
+  test('el manejador responde 500 JSON sin enviar la traza', () => {
+    const res = { headersSent: false, status: jest.fn().mockReturnThis(), json: jest.fn() };
+    const espia = jest.spyOn(console, 'error').mockImplementation(() => {});
+    errorHandler(new Error('fallo inesperado'), {}, res, () => {});
+    espia.mockRestore();
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    const cuerpo = res.json.mock.calls[0][0];
+    expect(cuerpo).toEqual({ error: 'Error interno del servidor.' });
+    expect(JSON.stringify(cuerpo)).not.toMatch(/fallo inesperado|at /);
   });
 });
 

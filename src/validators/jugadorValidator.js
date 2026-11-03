@@ -19,7 +19,11 @@ const MENSAJES_OBLIGATORIO = {
 const REGLAS = {
   nombre(valor) {
     if (typeof valor !== 'string') return 'El nombre debe ser texto.';
-    const longitud = valor.trim().length;
+    const limpio = valor.trim();
+    // Cc = caracteres de control (como \u0000), Cf = invisibles (como el espacio de ancho cero).
+    if (/[\p{Cc}\p{Cf}]/u.test(limpio)) return 'El nombre no puede contener caracteres de control ni invisibles.';
+    // Se cuentan caracteres reales: un emoji cuenta como uno, aunque ocupe dos unidades UTF-16.
+    const longitud = [...limpio].length;
     if (longitud < 2 || longitud > 60) return 'El nombre debe tener entre 2 y 60 caracteres.';
     return null;
   },
@@ -81,8 +85,10 @@ function validateJugador(body, { partial = false } = {}) {
   return { errors, value };
 }
 
+// Entero escrito en su forma canónica, sin ceros a la izquierda ("0", "5", "20"; no "05").
+// Es el mismo criterio que se aplica al :id de la ruta.
 function esEnteroNoNegativo(texto) {
-  return /^\d+$/.test(texto);
+  return /^(0|[1-9]\d*)$/.test(texto);
 }
 
 /**

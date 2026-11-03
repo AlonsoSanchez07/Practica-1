@@ -276,7 +276,7 @@ function validarEnCliente(datos) {
   const errores = [];
   if (datos.nombre.length === 0) {
     errores.push({ field: "nombre", message: "Escribe el nombre del jugador." });
-  } else if (datos.nombre.length < 2) {
+  } else if ([...datos.nombre].length < 2) {
     errores.push({ field: "nombre", message: "El nombre debe tener al menos 2 caracteres." });
   }
   if (!datos.posicion) errores.push({ field: "posicion", message: "Elige una posición." });

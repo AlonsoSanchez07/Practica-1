@@ -18,6 +18,17 @@ function errorHandler(err, req, res, next) {
     return res.status(413).json({ error: 'El cuerpo de la petición es demasiado grande.' });
   }
 
+  // Una URL con una codificación % inválida (por ejemplo /jugadores/%E0%A4%A) no puede
+  // corresponder a ningún recurso: se responde 404, igual que con cualquier id mal formado.
+  if (err instanceof URIError) {
+    return res.status(404).json({ error: 'No existe ningún recurso con esa URL: su codificación no es válida.' });
+  }
+
+  // Cualquier otro error del cliente que llegue aquí (status 4xx) conserva su status.
+  if (err.status >= 400 && err.status < 500) {
+    return res.status(err.status).json({ error: 'La petición no es válida.' });
+  }
+
   console.error(err);
   res.status(500).json({ error: 'Error interno del servidor.' });
 }

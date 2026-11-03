@@ -114,6 +114,63 @@ npm start
 node AI/blackbox-checks.mjs
 ```
 
+#### Lista completa de comprobaciones
+
+Las 50 comprobaciones de `AI/blackbox-checks.mjs`, en el orden en que se ejecutan:
+
+```text
+ 1. preparación: crear jugadores propios
+ 2. POST: 201, cuerpo con id y cabecera Location
+ 3. POST: ignora el id del cliente y descarta campos desconocidos
+ 4. POST: 400 con todas las incidencias (ejemplo del README)
+ 5. POST: cuerpo vacío {} lista los cinco campos obligatorios
+ 6. POST: tipos estrictos ("7", "true", "3", 5, 7.5)
+ 7. POST: valores justo en el límite se aceptan
+ 8. POST: valores justo fuera del límite dan 400 en su campo
+ 9. POST: un 400 no crea el jugador
+10. POST: JSON mal formado da 400 con formato errors
+11. GET /:id: 200 con el jugador
+12. GET /:id: 404 JSON si no existe
+13. GET /:id: id no entero positivo se trata como inexistente (404)
+14. Ruta inexistente: 404 JSON con error
+15. PUT: 200 sustituye el jugador completo
+16. PUT: ignora id del cuerpo y campos desconocidos
+17. PUT: exige todos los campos (400 y no rellena con el anterior)
+18. PUT: validación completa con todas las incidencias
+19. PUT: 404 si no existe, antes de validar el cuerpo
+20. PATCH: 200 modifica solo los campos enviados
+21. PATCH: validación parcial (solo el campo enviado)
+22. PATCH: cuerpo sin ningún campo conocido da 400
+23. PATCH: ignora id y descarta campos desconocidos
+24. PATCH: 404 si no existe, antes de validar el cuerpo
+25. DELETE: 204 sin cuerpo y después 404
+26. DELETE: 404 JSON si no existe o el id no es válido
+27. GET lista: 200 con total, limit, offset e items por defecto
+28. Filtro search: parcial, sin mayúsculas ni tildes
+29. Filtro disponible (true y false)
+30. Filtro posicion (las cinco posiciones)
+31. Filtros combinados (search + posicion + disponible)
+32. Ordenación por nombre asc/desc
+33. Ordenación por dorsal asc/desc (asc por defecto)
+34. Ordenación por puntos asc/desc
+35. Sin sort: orden por id (también con order=desc)
+36. limit/offset: ventanas y total independiente de la ventana
+37. Todo combinado: filtrar, ordenar y después ventana
+38. limit y offset en sus límites (1, 100, 0) se aceptan
+39. Parámetro desconocido: 400 con field = nombre del parámetro
+40. Ejemplo del README: ?limit=abc&color=azul da 400 con color y limit
+41. Stats: aplica la política de parámetros desconocidos (400)
+42. Valores mal formados o fuera de rango: 400 en su campo
+43. Varios valores mal formados: todas las incidencias a la vez
+44. Parámetros repetidos: 400
+45. Los errores de parámetros no detienen el servidor
+46. Stats: 200 con la forma del contrato y no se trata como id
+47. Stats: coherente con la lista completa de GET /jugadores
+48. Stats: se recalcula tras crear, modificar y borrar
+49. Stats: maximoAnotador cambia al crear un jugador con 60 puntos
+50. limpieza: borrar los jugadores propios
+```
+
 ## 2. Validation agent
 
 ### Configuración
